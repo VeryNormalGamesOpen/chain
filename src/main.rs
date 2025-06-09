@@ -56,8 +56,11 @@ fn main() {
             (
                 (game_camera, show_menu).run_if(state_changed::<GameState>),
                 (setup_menu).run_if(in_state(GameState::Menu).and(run_once)),
-                (start_button_system, exit_button_system)
-                    .run_if(in_state(GameState::Menu).or(in_state(GameState::Win)).or(in_state(GameState::Pause))),
+                (start_button_system, exit_button_system).run_if(
+                    in_state(GameState::Menu)
+                        .or(in_state(GameState::Win))
+                        .or(in_state(GameState::Pause)),
+                ),
                 key_pause.run_if(in_state(GameState::Game)),
                 key_unpause.run_if(in_state(GameState::Pause)),
                 (setup_camera_and_lights, setup_level)
@@ -382,20 +385,14 @@ fn end_game(
     event_game_over.clear();
 }
 
-fn key_pause(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut next_state: ResMut<NextState<GameState>>,
-) {
+fn key_pause(keyboard: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<GameState>>) {
     if keyboard.just_pressed(KeyCode::Escape) {
         next_state.set(GameState::Pause);
     }
 }
 
-fn key_unpause(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut next_state: ResMut<NextState<GameState>>,
-) {
-    if  keyboard.just_pressed(KeyCode::Escape) {
+fn key_unpause(keyboard: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<GameState>>) {
+    if keyboard.just_pressed(KeyCode::Escape) {
         next_state.set(GameState::Game);
     }
 }

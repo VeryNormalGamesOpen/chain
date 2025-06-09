@@ -1,5 +1,6 @@
 use avian3d::prelude::*;
 use bevy::asset::AssetMetaCheck;
+use bevy::log::tracing::Instrument;
 use bevy::render::view::RenderLayers;
 use bevy::{
     color::palettes::css,
@@ -14,6 +15,8 @@ use bevy_third_person_camera::*;
 
 use bevy_tnua::{TnuaProximitySensor, prelude::*};
 use bevy_tnua_avian3d::*;
+use rand::prelude::*;
+use rand_distr::{Distribution, Normal, NormalError};
 
 fn main() {
     App::new()
@@ -56,7 +59,7 @@ fn main() {
             (
                 (game_camera, show_menu).run_if(state_changed::<GameState>),
                 (setup_menu).run_if(in_state(GameState::Menu).and(run_once)),
-                (start_button_system, exit_button_system).run_if(
+                (start_button_system, exit_button_system, text_timer).run_if(
                     in_state(GameState::Menu)
                         .or(in_state(GameState::Win))
                         .or(in_state(GameState::Pause)),
@@ -141,7 +144,32 @@ struct Menu {
 }
 
 #[derive(Component)]
+struct StartInvisible {
+    time: Duration,
+}
+
+#[derive(Component)]
 struct DeathCountText;
+
+use std::time::Duration;
+
+#[derive(Component)]
+struct TextTime {
+    timer: Timer,
+}
+
+fn text_timer(
+    mut q: Query<(&mut Visibility, &mut TextTime)>,
+    time: Res<Time>,
+) {
+    for (mut viz, mut text_timer) in q.iter_mut() {
+        text_timer.timer.tick(time.delta());
+
+        if text_timer.timer.finished() {
+            *viz = Visibility::Visible;
+        }
+    }
+}
 
 fn game_camera(
     mut menu_cam_query: Query<&mut Camera, (With<MenuCamera>, Without<ThirdPersonCameraTarget>)>,
@@ -298,7 +326,6 @@ fn setup_level(
     mut materials: ResMut<Assets<StandardMaterial>>,
     atom_assets: Res<AtomAssets>,
 ) {
-    // Spawn the ground.
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(1024.0, 1024.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
@@ -306,14 +333,22 @@ fn setup_level(
         Collider::half_space(Vec3::Y),
     ));
 
-    for n in 1..10 {
-        commands.spawn((
-            SceneRoot(atom_assets.u_atom.clone()),
-            Transform::from_xyz(10.0, 4.0, -20.0 + 9.0 * n as f32).looking_to(Vec3::Z, Vec3::Y),
-            RigidBody::Static,
-            Collider::sphere(4.0),
-            WinGame,
-        ));
+    let start_vec = Vec3::new(60.0, 4.0, 0.0);
+
+    for i in -20..20 {
+        for j in -20..20 {
+            let sphere_vec = Vec3::new(60.0 + 9.0 * j as f32, 4.0, 9.0 * i as f32);
+            let distance = sphere_vec.distance(start_vec);
+            if distance < 30.0 {
+                commands.spawn((
+                    SceneRoot(atom_assets.u_atom.clone()),
+                    Transform::from_translation(sphere_vec).looking_to(Vec3::Z, Vec3::Y),
+                    RigidBody::Static,
+                    Collider::sphere(4.0),
+                    WinGame,
+                ));
+            }
+        }
     }
 }
 
@@ -325,7 +360,7 @@ fn setup_player(
     commands.spawn((
         Mesh3d(meshes.add(Sphere { radius: 0.5 })),
         MeshMaterial3d(materials.add(Color::from(css::DARK_CYAN))),
-        Transform::from_xyz(0.0, 4.0, 0.0),
+        Transform::from_xyz(0.0, 4.0, 0.0).looking_to(Vec3::X, Vec3::Y),
         RigidBody::Dynamic,
         Collider::sphere(0.5),
         TnuaController::default(),
@@ -370,9 +405,11 @@ fn end_game(
     player: Single<Entity, With<ThirdPersonCameraTarget>>,
     mut commands: Commands,
     mut event_game_over: EventReader<GameOver>,
-    _state: Res<State<GameState>>,
     mut next_state: ResMut<NextState<GameState>>,
     sound_assets: Res<SoundAssets>,
+    mut viz_timers: Query<(Entity, &mut Visibility, &StartInvisible)>,
+    mut text_query: Single<&mut Text, With<DeathCountText>>,
+
 ) {
     let Some(ev) = event_game_over.read().last() else {
         return;
@@ -381,6 +418,21 @@ fn end_game(
 
     commands.entity(*player).despawn();
     next_state.set(ev.0.clone());
+
+    let number = if let Ok(normal) = Normal::new(240000.0, 55000.0) {
+        rand::rng().sample(normal) as u32
+    } else {
+        237559
+    };
+
+    text_query.0 = format!("{} Civilian Deaths", number.to_string());  
+
+    for (id, mut viz, time) in viz_timers.iter_mut() {
+        *viz = Visibility::Hidden;
+        commands.entity(id).insert((TextTime {
+                timer: Timer::new(time.time, TimerMode::Once),
+            },));
+    }
 
     event_game_over.clear();
 }
@@ -540,9 +592,12 @@ fn win_menu(assets: &FontAssets) -> impl Bundle + use<> {
         children![
             (
                 Text::new("Congratulations!"),
+                StartInvisible{
+                    time: Duration::from_secs(1)
+                },
                 TextFont {
                     font: assets.u_atom.clone(),
-                    font_size: 100.0,
+                    font_size: 110.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -550,10 +605,13 @@ fn win_menu(assets: &FontAssets) -> impl Bundle + use<> {
             ),
             (
                 Text::new("200000 Civilian Deaths!"),
+                StartInvisible{
+                    time: Duration::from_secs(3)
+                },
                 DeathCountText,
                 TextFont {
                     font: assets.u_atom.clone(),
-                    font_size: 80.0,
+                    font_size: 62.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -562,6 +620,9 @@ fn win_menu(assets: &FontAssets) -> impl Bundle + use<> {
             (
                 Button,
                 StartButton,
+                StartInvisible{
+                    time: Duration::from_secs(5)
+                },
                 Node {
                     width: Val::Px(300.0),
                     height: Val::Px(80.0),
@@ -587,6 +648,9 @@ fn win_menu(assets: &FontAssets) -> impl Bundle + use<> {
             (
                 Button,
                 QuitButton,
+                StartInvisible{
+                    time: Duration::from_secs(5)
+                },
                 Node {
                     width: Val::Px(300.0),
                     height: Val::Px(80.0),

@@ -384,7 +384,6 @@ fn end_game(
 
 fn key_pause(
     keyboard: Res<ButtonInput<KeyCode>>,
-    gamepads: Query<&Gamepad>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
@@ -394,7 +393,6 @@ fn key_pause(
 
 fn key_unpause(
     keyboard: Res<ButtonInput<KeyCode>>,
-    gamepads: Query<&Gamepad>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     if  keyboard.just_pressed(KeyCode::Escape) {
@@ -404,7 +402,6 @@ fn key_unpause(
 
 fn apply_controls(
     keyboard: Res<ButtonInput<KeyCode>>,
-    gamepads: Query<&Gamepad>,
     mut query: Query<(&mut TnuaController, &GlobalTransform)>,
     camera_query: Query<&GlobalTransform, With<ThirdPersonCamera>>,
 ) {

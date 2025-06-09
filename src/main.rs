@@ -57,7 +57,9 @@ fn main() {
                 (game_camera, show_menu).run_if(state_changed::<GameState>),
                 (setup_menu).run_if(in_state(GameState::Menu).and(run_once)),
                 (start_button_system, exit_button_system)
-                    .run_if(in_state(GameState::Menu).or(in_state(GameState::Win))),
+                    .run_if(in_state(GameState::Menu).or(in_state(GameState::Win)).or(in_state(GameState::Pause))),
+                key_pause.run_if(in_state(GameState::Game)),
+                key_unpause.run_if(in_state(GameState::Pause)),
                 (setup_camera_and_lights, setup_level)
                     .run_if(in_state(GameState::Game).and(run_once)),
                 setup_player.run_if(
@@ -108,6 +110,7 @@ pub enum GameState {
     Loading,
     Menu,
     Game,
+    Pause,
     Win,
 }
 
@@ -147,6 +150,7 @@ fn game_camera(
         GameState::Menu => false,
         GameState::Game => true,
         GameState::Win => false,
+        GameState::Pause => false,
     };
 
     if let Ok(mut menu_cam) = menu_cam_query.single_mut() {
@@ -277,6 +281,12 @@ fn setup_menu(mut commands: Commands, font_assets: Res<FontAssets>) {
         RenderLayers::layer(1),
         Visibility::Hidden,
     ));
+
+    commands.spawn((
+        pause_menu(&font_assets),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
 }
 
 fn setup_level(
@@ -372,8 +382,29 @@ fn end_game(
     event_game_over.clear();
 }
 
+fn key_pause(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    if keyboard.just_pressed(KeyCode::Escape) {
+        next_state.set(GameState::Pause);
+    }
+}
+
+fn key_unpause(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    if  keyboard.just_pressed(KeyCode::Escape) {
+        next_state.set(GameState::Game);
+    }
+}
+
 fn apply_controls(
     keyboard: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
     mut query: Query<(&mut TnuaController, &GlobalTransform)>,
     camera_query: Query<&GlobalTransform, With<ThirdPersonCamera>>,
 ) {
@@ -550,6 +581,75 @@ fn win_menu(assets: &FontAssets) -> impl Bundle + use<> {
                 BackgroundColor(NORMAL_BUTTON),
                 children![(
                     Text::new("Play Again"),
+                    TextFont {
+                        font: assets.u_atom.clone(),
+                        font_size: 38.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
+                )]
+            ),
+            (
+                Button,
+                QuitButton,
+                Node {
+                    width: Val::Px(300.0),
+                    height: Val::Px(80.0),
+                    border: UiRect::all(Val::Px(5.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BorderColor(Color::BLACK),
+                BorderRadius::MAX,
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Quit"),
+                    TextFont {
+                        font: assets.u_atom.clone(),
+                        font_size: 38.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
+                )]
+            )
+        ],
+    )
+}
+
+fn pause_menu(assets: &FontAssets) -> impl Bundle + use<> {
+    (
+        Menu {
+            show_state: GameState::Pause,
+        },
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            row_gap: Val::Px(10.0),
+            ..default()
+        },
+        children![
+            (
+                Button,
+                StartButton,
+                Node {
+                    width: Val::Px(300.0),
+                    height: Val::Px(80.0),
+                    border: UiRect::all(Val::Px(5.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BorderColor(Color::BLACK),
+                BorderRadius::MAX,
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Resume"),
                     TextFont {
                         font: assets.u_atom.clone(),
                         font_size: 38.0,

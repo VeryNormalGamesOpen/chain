@@ -1,63 +1,79 @@
-use bevy::asset::AssetMetaCheck;
-use bevy::ecs::system::command;
-use bevy::render::view::RenderLayers;
-use bevy::{color::palettes::css, window::{WindowMode, WindowResolution}, prelude::*};
-use bevy_asset_loader::prelude::*;
-use bevy_asset_loader::asset_collection::AssetCollection;
-use bevy_seedling::prelude::*;
 use avian3d::prelude::*;
+use bevy::asset::AssetMetaCheck;
+use bevy::render::view::RenderLayers;
+use bevy::{
+    color::palettes::css,
+    prelude::*,
+    window::{WindowMode, WindowResolution},
+};
+use bevy_asset_loader::asset_collection::AssetCollection;
+use bevy_asset_loader::prelude::*;
+use bevy_seedling::prelude::*;
 use bevy_seedling::sample::Sample;
 use bevy_third_person_camera::*;
 
-use bevy_tnua::{prelude::*, TnuaProximitySensor};
+use bevy_tnua::{TnuaProximitySensor, prelude::*};
 use bevy_tnua_avian3d::*;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins
-            .set(AssetPlugin {
-            // Wasm builds will check for meta files (that don't exist) if this isn't set.
-            // This causes errors and even panics in web builds on itch.
-            // See https://github.com/bevyengine/bevy_github_ci_template/issues/48.
-            meta_check: AssetMetaCheck::Never,
-            ..default()
-        }).set(WindowPlugin {
-            primary_window: Some(Window {
-                resizable: false,
-                position: WindowPosition::Automatic,
-                mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
-                resolution: WindowResolution::default(),
-                visible: true,
-                ..default()
-            }),
-            ..default()
-        }),
-        PhysicsPlugins::default(),
+        .add_plugins((
+            DefaultPlugins
+                .set(AssetPlugin {
+                    // Wasm builds will check for meta files (that don't exist) if this isn't set.
+                    // This causes errors and even panics in web builds on itch.
+                    // See https://github.com/bevyengine/bevy_github_ci_template/issues/48.
+                    meta_check: AssetMetaCheck::Never,
+                    ..default()
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        resizable: false,
+                        position: WindowPosition::Automatic,
+                        mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+                        resolution: WindowResolution::default(),
+                        visible: true,
+                        ..default()
+                    }),
+                    ..default()
+                }),
+            PhysicsPlugins::default(),
             TnuaControllerPlugin::new(FixedUpdate),
             TnuaAvian3dPlugin::new(FixedUpdate),
-        SeedlingPlugin::default(),
-        ThirdPersonCameraPlugin,
-    ))
+            SeedlingPlugin::default(),
+            ThirdPersonCameraPlugin,
+        ))
         .init_state::<GameState>()
         .add_loading_state(
-        LoadingState::new(GameState::Loading)
-            .continue_to_state(GameState::Menu)
-            .load_collection::<AtomAssets>()
-            .load_collection::<FontAssets>()
-            .load_collection::<SoundAssets>()
+            LoadingState::new(GameState::Loading)
+                .continue_to_state(GameState::Menu)
+                .load_collection::<AtomAssets>()
+                .load_collection::<FontAssets>()
+                .load_collection::<SoundAssets>(),
         )
-        .add_systems(Update, (
-            (game_camera, show_menu).run_if(state_changed::<GameState>),
-            (setup_menu).run_if(in_state(GameState::Menu).and(run_once)),
-            (start_button_system, exit_button_system).run_if(in_state(GameState::Menu).or(in_state(GameState::Win))),
-            (setup_camera_and_lights, setup_level).run_if(in_state(GameState::Game).and(run_once)),
-            setup_player.run_if(in_state(GameState::Game).and(not(any_with_component::<ThirdPersonCameraTarget>))),
-            collision_response.run_if(on_event::<CollisionWith>),
-            end_game.run_if(on_event::<GameOver>), 
-            (detect_atom).run_if(in_state(GameState::Game))))
+        .add_systems(
+            Update,
+            (
+                (game_camera, show_menu).run_if(state_changed::<GameState>),
+                (setup_menu).run_if(in_state(GameState::Menu).and(run_once)),
+                (start_button_system, exit_button_system)
+                    .run_if(in_state(GameState::Menu).or(in_state(GameState::Win))),
+                (setup_camera_and_lights, setup_level)
+                    .run_if(in_state(GameState::Game).and(run_once)),
+                setup_player.run_if(
+                    in_state(GameState::Game)
+                        .and(not(any_with_component::<ThirdPersonCameraTarget>)),
+                ),
+                collision_response.run_if(on_event::<CollisionWith>),
+                end_game.run_if(on_event::<GameOver>),
+                (detect_atom).run_if(in_state(GameState::Game)),
+            ),
+        )
         .add_systems(
             FixedUpdate,
-            apply_controls.in_set(TnuaUserControlsSystemSet).run_if(in_state(GameState::Game)),
+            apply_controls
+                .in_set(TnuaUserControlsSystemSet)
+                .run_if(in_state(GameState::Game)),
         )
         .add_event::<CollisionWith>()
         .add_event::<GameOver>()
@@ -92,7 +108,7 @@ pub enum GameState {
     Loading,
     Menu,
     Game,
-    Win
+    Win,
 }
 
 #[derive(Event)]
@@ -114,8 +130,8 @@ struct StartButton;
 struct QuitButton;
 
 #[derive(Component)]
-struct Menu{
-    show_state: GameState
+struct Menu {
+    show_state: GameState,
 }
 
 #[derive(Component)]
@@ -123,7 +139,7 @@ struct DeathCountText;
 
 fn game_camera(
     mut menu_cam_query: Query<&mut Camera, (With<MenuCamera>, Without<ThirdPersonCameraTarget>)>,
-    mut game_cam_query: Query<(&mut Camera, &mut ThirdPersonCamera), (Without<MenuCamera>)>,
+    mut game_cam_query: Query<(&mut Camera, &mut ThirdPersonCamera), Without<MenuCamera>>,
     state: Res<State<GameState>>,
 ) {
     let game_cam: bool = match state.get() {
@@ -142,16 +158,11 @@ fn game_camera(
     };
 }
 
-fn show_menu(
-    mut menu: Query<(&mut Visibility, &Menu)>,
-    state: Res<State<GameState>>,
-) {
-
+fn show_menu(mut menu: Query<(&mut Visibility, &Menu)>, state: Res<State<GameState>>) {
     for (mut menu_viz, menu_type) in menu.iter_mut() {
         if menu_type.show_state == *state.get() {
             *menu_viz = Visibility::Visible;
-        }
-        else {
+        } else {
             *menu_viz = Visibility::Hidden;
         }
     }
@@ -159,22 +170,21 @@ fn show_menu(
 
 fn setup_camera_and_lights(mut commands: Commands) {
     commands.spawn((
-        Camera{
+        Camera {
             clear_color: ClearColorConfig::Custom(Color::from(css::DARK_GRAY)),
             ..default()
         },
         Camera3d::default(),
         RenderLayers::layer(0),
-        ThirdPersonCamera{
+        ThirdPersonCamera {
             offset: Offset::new(2.0, 0.0),
             cursor_lock_toggle_enabled: true,
             cursor_lock_key: KeyCode::KeyC,
             ..default()
-        }, 
+        },
     ));
 
     commands.spawn((PointLight::default(), Transform::from_xyz(5.0, 5.0, 5.0)));
-
 
     commands.spawn((
         DirectionalLight {
@@ -200,7 +210,7 @@ fn start_button_system(
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     for (interaction, mut color, mut border_color, children) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+        let text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
@@ -230,10 +240,10 @@ fn exit_button_system(
         (Changed<Interaction>, With<Button>, With<QuitButton>),
     >,
     mut text_query: Query<&mut Text>,
-    mut exit: EventWriter<AppExit>
+    mut exit: EventWriter<AppExit>,
 ) {
     for (interaction, mut color, mut border_color, children) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+        let text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
@@ -254,16 +264,13 @@ fn exit_button_system(
 
 fn setup_menu(mut commands: Commands, font_assets: Res<FontAssets>) {
     commands.spawn((
-        Camera2d::default(),
+        Camera2d,
         RenderLayers::layer(1),
         MenuCamera,
-        IsDefaultUiCamera
+        IsDefaultUiCamera,
     ));
 
-    commands.spawn((
-        main_menu(&font_assets),
-        RenderLayers::layer(1),
-    ));
+    commands.spawn((main_menu(&font_assets), RenderLayers::layer(1)));
 
     commands.spawn((
         win_menu(&font_assets),
@@ -276,7 +283,7 @@ fn setup_level(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    atom_assets: Res<AtomAssets>
+    atom_assets: Res<AtomAssets>,
 ) {
     // Spawn the ground.
     commands.spawn((
@@ -303,9 +310,7 @@ fn setup_player(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Mesh3d(meshes.add(Sphere {
-            radius: 0.5,
-        })),
+        Mesh3d(meshes.add(Sphere { radius: 0.5 })),
         MeshMaterial3d(materials.add(Color::from(css::DARK_CYAN))),
         Transform::from_xyz(0.0, 4.0, 0.0),
         RigidBody::Dynamic,
@@ -317,7 +322,7 @@ fn setup_player(
 }
 
 fn detect_atom(
-    query: Query<&TnuaProximitySensor>, 
+    query: Query<&TnuaProximitySensor>,
     mut event_collision: EventWriter<CollisionWith>,
 ) {
     let Ok(sensor) = query.single() else {
@@ -328,27 +333,23 @@ fn detect_atom(
         return;
     };
 
-    let entity2 =  output.entity;
+    let entity2 = output.entity;
 
     event_collision.write(CollisionWith(entity2));
 
     println!("Player and {entity2} colliding");
-
 }
 
 fn collision_response(
     mut event_collision: EventReader<CollisionWith>,
     mut event_game_over: EventWriter<GameOver>,
-    query: Query<&WinGame>
-
+    query: Query<&WinGame>,
 ) {
     for ev in event_collision.read() {
         eprintln!("Entity {:?} Collide!", &ev.0);
         if query.contains(ev.0) {
             event_game_over.write(GameOver(GameState::Win));
         }
-
-
     }
 }
 
@@ -358,7 +359,7 @@ fn end_game(
     mut event_game_over: EventReader<GameOver>,
     _state: Res<State<GameState>>,
     mut next_state: ResMut<NextState<GameState>>,
-    sound_assets: Res<SoundAssets>
+    sound_assets: Res<SoundAssets>,
 ) {
     let Some(ev) = event_game_over.read().last() else {
         return;
@@ -367,11 +368,15 @@ fn end_game(
 
     commands.entity(*player).despawn();
     next_state.set(ev.0.clone());
-        
+
     event_game_over.clear();
 }
 
-fn apply_controls(keyboard: Res<ButtonInput<KeyCode>>, mut query: Query<(&mut TnuaController, &GlobalTransform)>, camera_query: Query<&GlobalTransform, With<ThirdPersonCamera>> ) {
+fn apply_controls(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(&mut TnuaController, &GlobalTransform)>,
+    camera_query: Query<&GlobalTransform, With<ThirdPersonCamera>>,
+) {
     let Ok((mut controller, player_transform)) = query.single_mut() else {
         return;
     };
@@ -395,16 +400,16 @@ fn apply_controls(keyboard: Res<ButtonInput<KeyCode>>, mut query: Query<(&mut Tn
         direction += player_transform.right().as_vec3();
     }
 
-
     controller.basis(TnuaBuiltinWalk {
-
         desired_velocity: direction.normalize_or_zero() * 20.0,
-        desired_forward: Dir3::new(camera.forward().as_vec3() - camera.forward().as_vec3().project_onto(Vec3::Y)).ok(),
+        desired_forward: Dir3::new(
+            camera.forward().as_vec3() - camera.forward().as_vec3().project_onto(Vec3::Y),
+        )
+        .ok(),
 
         float_height: 4.0,
         ..Default::default()
     });
-
 
     if keyboard.pressed(KeyCode::Space) {
         controller.action(TnuaBuiltinJump {
@@ -416,8 +421,8 @@ fn apply_controls(keyboard: Res<ButtonInput<KeyCode>>, mut query: Query<(&mut Tn
 
 fn main_menu(assets: &FontAssets) -> impl Bundle + use<> {
     (
-        Menu{
-            show_state: GameState::Menu
+        Menu {
+            show_state: GameState::Menu,
         },
         Node {
             width: Val::Percent(100.0),
@@ -428,7 +433,8 @@ fn main_menu(assets: &FontAssets) -> impl Bundle + use<> {
             row_gap: Val::Px(10.0),
             ..default()
         },
-        children![(
+        children![
+            (
                 Text::new("Fissile Material"),
                 TextFont {
                     font: assets.u_atom.clone(),
@@ -438,63 +444,64 @@ fn main_menu(assets: &FontAssets) -> impl Bundle + use<> {
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 TextShadow::default(),
             ),
-        (
-            Button,
-            StartButton,
-            Node {
-                width: Val::Px(300.0),
-                height: Val::Px(80.0),
-                border: UiRect::all(Val::Px(5.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BorderColor(Color::BLACK),
-            BorderRadius::MAX,
-            BackgroundColor(NORMAL_BUTTON),
-            children![(
-                Text::new("Start Game"),
-                TextFont {
-                    font: assets.u_atom.clone(),
-                    font_size: 38.0,
+            (
+                Button,
+                StartButton,
+                Node {
+                    width: Val::Px(300.0),
+                    height: Val::Px(80.0),
+                    border: UiRect::all(Val::Px(5.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                TextShadow::default(),
-            )]
-        ),
-        (
-            Button,
-            QuitButton,
-            Node {
-                width: Val::Px(300.0),
-                height: Val::Px(80.0),
-                border: UiRect::all(Val::Px(5.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BorderColor(Color::BLACK),
-            BorderRadius::MAX,
-            BackgroundColor(NORMAL_BUTTON),
-            children![(
-                Text::new("Quit"),
-                TextFont {
-                    font: assets.u_atom.clone(),
-                    font_size: 38.0,
+                BorderColor(Color::BLACK),
+                BorderRadius::MAX,
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Start Game"),
+                    TextFont {
+                        font: assets.u_atom.clone(),
+                        font_size: 38.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
+                )]
+            ),
+            (
+                Button,
+                QuitButton,
+                Node {
+                    width: Val::Px(300.0),
+                    height: Val::Px(80.0),
+                    border: UiRect::all(Val::Px(5.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                TextShadow::default(),
-            )]
-        )],
+                BorderColor(Color::BLACK),
+                BorderRadius::MAX,
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Quit"),
+                    TextFont {
+                        font: assets.u_atom.clone(),
+                        font_size: 38.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
+                )]
+            )
+        ],
     )
 }
 
 fn win_menu(assets: &FontAssets) -> impl Bundle + use<> {
     (
-        Menu{
-            show_state: GameState::Win
+        Menu {
+            show_state: GameState::Win,
         },
         Node {
             width: Val::Percent(100.0),
@@ -505,7 +512,8 @@ fn win_menu(assets: &FontAssets) -> impl Bundle + use<> {
             row_gap: Val::Px(10.0),
             ..default()
         },
-        children![(
+        children![
+            (
                 Text::new("Congratulations!"),
                 TextFont {
                     font: assets.u_atom.clone(),
@@ -514,7 +522,8 @@ fn win_menu(assets: &FontAssets) -> impl Bundle + use<> {
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 TextShadow::default(),
-            ),(
+            ),
+            (
                 Text::new("200000 Civilian Deaths!"),
                 DeathCountText,
                 TextFont {
@@ -525,55 +534,56 @@ fn win_menu(assets: &FontAssets) -> impl Bundle + use<> {
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 TextShadow::default(),
             ),
-        (
-            Button,
-            StartButton,
-            Node {
-                width: Val::Px(300.0),
-                height: Val::Px(80.0),
-                border: UiRect::all(Val::Px(5.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BorderColor(Color::BLACK),
-            BorderRadius::MAX,
-            BackgroundColor(NORMAL_BUTTON),
-            children![(
-                Text::new("Play Again"),
-                TextFont {
-                    font: assets.u_atom.clone(),
-                    font_size: 38.0,
+            (
+                Button,
+                StartButton,
+                Node {
+                    width: Val::Px(300.0),
+                    height: Val::Px(80.0),
+                    border: UiRect::all(Val::Px(5.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                TextShadow::default(),
-            )]
-        ),
-        (
-            Button,
-            QuitButton,
-            Node {
-                width: Val::Px(300.0),
-                height: Val::Px(80.0),
-                border: UiRect::all(Val::Px(5.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BorderColor(Color::BLACK),
-            BorderRadius::MAX,
-            BackgroundColor(NORMAL_BUTTON),
-            children![(
-                Text::new("Quit"),
-                TextFont {
-                    font: assets.u_atom.clone(),
-                    font_size: 38.0,
+                BorderColor(Color::BLACK),
+                BorderRadius::MAX,
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Play Again"),
+                    TextFont {
+                        font: assets.u_atom.clone(),
+                        font_size: 38.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
+                )]
+            ),
+            (
+                Button,
+                QuitButton,
+                Node {
+                    width: Val::Px(300.0),
+                    height: Val::Px(80.0),
+                    border: UiRect::all(Val::Px(5.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                TextShadow::default(),
-            )]
-        )],
+                BorderColor(Color::BLACK),
+                BorderRadius::MAX,
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Quit"),
+                    TextFont {
+                        font: assets.u_atom.clone(),
+                        font_size: 38.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
+                )]
+            )
+        ],
     )
 }

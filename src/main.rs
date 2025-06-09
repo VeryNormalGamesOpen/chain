@@ -214,7 +214,7 @@ fn start_button_system(
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     for (interaction, mut color, mut border_color, children) in &mut interaction_query {
-        let text = text_query.get_mut(children[0]).unwrap();
+        let _text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
@@ -247,7 +247,7 @@ fn exit_button_system(
     mut exit: EventWriter<AppExit>,
 ) {
     for (interaction, mut color, mut border_color, children) in &mut interaction_query {
-        let text = text_query.get_mut(children[0]).unwrap();
+        let _text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();

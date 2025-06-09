@@ -1,8 +1,8 @@
 [package]
-name = "bevy_github_ci_template"
+name = "chain_game"
 version = "0.1.0"
 edition = "2024"
-license = "MIT OR Apache-2.0 OR CC0-1.0"
+license = "MIT"
 
 # Compile with Performance Optimizations:
 # https://bevyengine.org/learn/book/getting-started/setup/#compile-with-performance-optimizations
@@ -16,7 +16,50 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = "0.16"
+avian3d = "0.3.0"
+bevy = { version = "0.16", default-features = false, features = [
+  "animation",
+  "bevy_asset",
+  "bevy_color",
+  "bevy_core_pipeline",
+  "bevy_gilrs",
+  "bevy_gizmos",
+  "bevy_gltf",
+  "bevy_mesh_picking_backend",
+  "bevy_pbr",
+  "bevy_picking",
+  "bevy_render",
+  "bevy_scene",
+  "bevy_sprite",
+  "bevy_sprite_picking_backend",
+  "bevy_state",
+  "bevy_text",
+  "bevy_ui",
+  "bevy_ui_picking_backend",
+  "bevy_window",
+  "bevy_winit",
+  "custom_cursor",
+  "default_font",
+  "hdr",
+  "multi_threaded",
+  "png",
+  "smaa_luts",
+  "sysinfo_plugin",
+  "tonemapping_luts",
+  "webgl2",
+  "x11",
+] }
+bevy-tnua = "0.24.0"
+bevy-tnua-avian3d = "0.5.0"
+bevy_asset_loader = { version = "0.23.0", features = [
+  "3d",
+] }
+bevy_enhanced_input = "0.12.0"
+bevy_reflect = "0.16.1"
+bevy_seedling = { version = "0.4.1", features = [
+  "wav",
+] }
+bevy_third_person_camera = "0.3.0"
 
 # These lints may be important signals about code quality, but normal Bevy code
 # commonly triggers them and the CI workflow treats them as errors, so we've
